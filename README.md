@@ -143,6 +143,10 @@ def my_custom_tool(param1: str, param2: str):
 - STDIO mode: Check VS Code MCP extension logs
 - SSE mode: Server logs are printed to console
 
+## Sample prompt
+
+```Tell me the precise time (using MCP Tools).```
+
 ## License
 
 This template is provided as-is for educational and development purposes.
