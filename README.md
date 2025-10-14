@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/m4tice-python-fastmcp-tpl-badge.png)](https://mseep.ai/app/m4tice-python-fastmcp-tpl)
+
 # Python FastMCP Template
 
 A template for creating Model Context Protocol (MCP) servers using Python and FastMCP.
