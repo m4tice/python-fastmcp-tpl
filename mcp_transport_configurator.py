@@ -18,7 +18,7 @@ def configure_mcp():
     if SETTINGS[PROTOCOL] == SSE:
         config = {
             "servers": {
-                "my-sse-mcp-server": {
+                "sie-sse-mcp-server": {
                     "type": "sse",
                     "url": f"http://127.0.0.1:{SETTINGS[PORT]}/sse"
                 }
@@ -29,9 +29,9 @@ def configure_mcp():
         # SETTINGS[PROTOCOL] == STDIO    
         config = {
             "servers": {
-                "my-mcp-server": {
-                    "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
-                    "args": ["mcp_server.py"],
+                "sie-mcp-server": {
+                    "command": "${workspaceFolder}/.venv/bin/python",
+                    "args": ["sie_server/mcp_server.py"],
                     "env": {
                         "PYTHONPATH": "${workspaceFolder}"
                     }
