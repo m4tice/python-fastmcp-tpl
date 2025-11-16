@@ -179,3 +179,5 @@ pyrightconfig.json
 .DS_Store
 
 .vscode/
+.zip
+.arxml
