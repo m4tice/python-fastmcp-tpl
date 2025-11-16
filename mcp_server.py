@@ -136,6 +136,44 @@ def get_precise_definition_path_using_rapidfuzz(keyword: str):
     """
     return get_definition_path_rapidfuzz(keyword)
 
+@app.tool(
+        description="""
+        Create ECUC configuration in JSON format for a given path and names mapping.
+        1. Path is a '/' separated string representing ECUC hierarchy.
+        It should be taken from get_precise_definition_path_using_rapidfuzz.
+        It should contain parts that are taken from get_definition or known ECUC parts.
+        2. Names is a dictionary mapping ECUC parts to desired names.
+        The tool generates nested JSON structure representing the ECUC configuration.
+
+        Example:
+        -------
+        Prompt: Create ComIPdu with the name ESP_19.
+        Given path: "/com/comconfig/comipdu"
+        And names: {"comipdu": "ESP_19"}
+        """
+)
+def create_ecuc_configuration(path: str, names: dict):
+    """
+    Create ECUC configuration in JSON format for a given path and names mapping.
+    1. Path is a '/' separated string representing ECUC hierarchy.
+       It should be taken from get_precise_definition_path_using_rapidfuzz.
+       It should contain parts that are taken from get_definition or known ECUC parts.
+    2. Names is a dictionary mapping ECUC parts to desired names.
+    The tool generates nested JSON structure representing the ECUC configuration.
+
+    Example:
+    -------
+    Prompt: Create ComIPdu with the name ESP_19.
+    Given path: "/com/comconfig/comipdu"
+    And names: {"comipdu": "ESP_19"}
+    """
+    from ecuc_configurator import ECUCConfigurator
+
+    configurator = ECUCConfigurator()
+    config = configurator.configure(path, names)
+    configurator.save_or_merge("ecuc_config.json", config)
+    return config
+
 if __name__ == "__main__":
     # Reconfigure mcp.json
     configure_mcp()
