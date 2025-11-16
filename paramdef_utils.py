@@ -20,7 +20,7 @@ from generic_utils import (
     get_close_matches_rapidfuzz
     )
 
-from tree_gen import convert_arxml_to_json
+from tree_gen import convert_paramdef_to_json
 from difflib import get_close_matches
 from sie_settings import (
     DIFFLIB_NUMBER_OF_RESULTS,
@@ -71,7 +71,7 @@ def get_definition(keyword: str):
     for paramdef in paramdefs:
         print("=" * 30, f" {str(paramdef).split('/')[-1]} ")
         try:
-            data = convert_arxml_to_json(paramdef)
+            data = convert_paramdef_to_json(paramdef)
         except Exception:
             continue
         
@@ -123,7 +123,7 @@ def get_definition_path_difflib(keyword: str):
     for paramdef in paramdefs:
         try:
             # data = json.loads(paramdef.read_text())
-            data = convert_arxml_to_json(paramdef)
+            data = convert_paramdef_to_json(paramdef)
         except Exception:
             continue
         
@@ -152,7 +152,7 @@ def get_definition_path_rapidfuzz(keyword: str):
     paramdefs = get_all_paramdef_files()
     for paramdef in paramdefs:
         try:
-            data = convert_arxml_to_json(paramdef)
+            data = convert_paramdef_to_json(paramdef)
         except Exception:
             continue
         

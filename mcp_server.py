@@ -8,7 +8,7 @@ from fastmcp import FastMCP
 from mcp_transport_configurator import configure_mcp
 from mcp_settings import SETTINGS, PROTOCOL, STDIO, SSE, PORT
 from mcp_util import get_precise_time
-from tree_gen import convert_arxml_to_json
+from tree_gen import convert_paramdef_to_json
 from paramdef_utils import (
     get_definition,
     get_definition_path_difflib,
@@ -71,14 +71,14 @@ def get_definition_file_from_keyword(keyword: str):
 
 @app.tool(
         description="""
-        Parse ARXML file to JSON.
+        Parse Parameter Definition (ParamDef) from ARXML file to JSON.
         """
 )
-def parse_arxml_to_json(file_path: str):
+def parse_paramdef_to_json(file_path: str):
     """
-    Parse ARXML file to JSON.
+    Parse Parameter Defnition (ParamDef) from ARXML file to JSON.
     """
-    json_data = convert_arxml_to_json(file_path)
+    json_data = convert_paramdef_to_json(file_path)
     return json_data
 
 @app.tool(

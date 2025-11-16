@@ -547,7 +547,7 @@ class JSONGenerator:
         return ref_dict
 
 
-def convert_arxml_to_json(arxml_file) -> dict:
+def convert_paramdef_to_json(arxml_file) -> dict:
     parser_obj = SimpleARXMLParser()
     module = parser_obj.parse_arxml_file(arxml_file)
     
