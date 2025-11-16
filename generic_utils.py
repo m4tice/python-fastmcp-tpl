@@ -12,7 +12,7 @@ def info(message):
     """
     print with [INFO] prefix in cyan
     """
-    print(f"\033[96m[INFO] {message}\033[0m")
+    print(f"\033[96m[INFO]  {message}\033[0m")
 
 def debug(message):
     """
@@ -26,7 +26,7 @@ def error(message):
     """
     print(f"\033[91m[ERROR] {message}\033[0m")
 
-def export2json(filename, data):
+def export2json(filename, data, indent: int = 2, use_tabs: bool = False):
     # Convert VersionObject instances to dictionaries for JSON serialization
     if isinstance(data, list):
         result_dict = [item.model_dump() if hasattr(item, 'model_dump') else item for item in data]
@@ -35,7 +35,26 @@ def export2json(filename, data):
     
     # Export history to JSON file
     with open(filename, "w") as f:
-        json.dump(result_dict, f, indent=2)
+        if not use_tabs:
+            json.dump(result_dict, f, indent=indent)
+        else:
+            # Preferred: pass a tab string as indent (Python 3.11+ supports string indent)
+            try:
+                json.dump(result_dict, f, indent="\t")
+            except TypeError:
+                # Fallback for older Python: dump with numeric indent then replace leading spaces
+                s = json.dumps(result_dict, indent=indent)
+                import re
+
+                def _spaces_to_tabs(match):
+                    spaces = match.group(0)
+                    count = len(spaces)
+                    tabs = count // indent
+                    rem = count % indent
+                    return "\t" * tabs + " " * rem
+
+                s = re.sub(r'(?m)^( +)', _spaces_to_tabs, s)
+                f.write(s)
     info(f"Exported successfully to {filename}")
 
 def get_keys(data: dict) -> set:
