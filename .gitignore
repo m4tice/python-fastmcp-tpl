@@ -181,3 +181,4 @@ pyrightconfig.json
 .vscode/
 *.zip
 *.arxml
+*.json
