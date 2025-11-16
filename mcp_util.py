@@ -173,7 +173,6 @@ def get_definition_path_rapidfuzz(keyword: str):
                         "similarity_score": score / 100.0
                     })
     return paths
-        
 
 # Example usage
 if __name__ == "__main__":

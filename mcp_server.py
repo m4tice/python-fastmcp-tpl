@@ -7,8 +7,9 @@ from fastmcp import FastMCP
 
 from mcp_transport_configurator import configure_mcp
 from mcp_settings import SETTINGS, PROTOCOL, STDIO, SSE, PORT
-from mcp_util import (
-    get_precise_time,
+from mcp_util import get_precise_time
+from tree_gen import convert_arxml_to_json
+from paramdef_utils import (
     get_definition,
     get_definition_path_difflib,
     get_definition_path_rapidfuzz
@@ -29,16 +30,56 @@ def get_precise_time():
 
 @app.tool(
         description="""
-        Get information such as parameter definition, definition path, etc.
+        Provide response instructions for a given prompt.
+        """)
+def provide_response_instructions():
+    """
+    Provide response instructions for a given prompt.
+    """
+    instructions = """
+    When responding to prompts, please adhere to the following guidelines:
+    1. Clarity: Ensure your responses are clear and easy to understand.
+    2. Conciseness: Keep your answers brief and to the point, avoiding unnecessary details.
+    3. Relevance: Stay focused on the topic of the prompt and avoid deviating into unrelated areas.
+    4. Accuracy: Provide correct and reliable information based on your training data.
+    5. Tone: Maintain a professional and respectful tone in all responses.
+    6. Structure: Organize your answers logically, using paragraphs or bullet points where appropriate.
+    7. Examples: Include examples to illustrate complex points when necessary.
+    8. Avoid Jargon: Use simple language and avoid technical jargon unless specifically requested.
+    9. Engagement: Encourage further discussion or questions if applicable.
+    10. Ethical Considerations: Ensure that your responses adhere to ethical guidelines and do not promote harmful behavior.
+    11. Don't return raw JSON unless explicitly asked. Format the response in a user-friendly manner.
+    12. When providing code snippets, ensure they are properly formatted and include necessary context for understanding.
+    13. Keep the answer simple, but not oversimplified. Provide enough detail to be informative without overwhelming the user.
+    14. Don't provide shell commmands unless explicitly asked.
+    """
+    return instructions
+
+@app.tool(
+        description="""
+        Get the file contains generic knowledge
+        such as parameter definition, definition path, multiplicity, etc.
         for a given keyword from param definition JSON files.
         """
 )
-def get_generic_knowledge_from_keyword(keyword: str):
+def get_definition_file_from_keyword(keyword: str):
     """
-    Get generic knowledge such as parameter definition, definition path, multiplicity, etc.
+    Get the file contains generic knowledge such as parameter definition, definition path, multiplicity, etc.
     for a given keyword from param definition JSON files.
     """
     return get_definition(keyword)
+
+@app.tool(
+        description="""
+        Parse ARXML file to JSON.
+        """
+)
+def parse_arxml_to_json(file_path: str):
+    """
+    Parse ARXML file to JSON.
+    """
+    json_data = convert_arxml_to_json(file_path)
+    return json_data
 
 @app.tool(
         description="""
