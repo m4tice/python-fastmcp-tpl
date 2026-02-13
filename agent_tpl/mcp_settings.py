@@ -16,9 +16,6 @@ PORT = "PORT"                      # IMPORTANT # IMPORTANT
 #========== FEEL FREE TO MODIFY BELOW THIS LINE ==========
 #=========================================================
 
-# .VSCode MCP Transport Configurator Settings
-PATH_PARENT = None
-
 # MCP settings
 SETTINGS = {
     MCP_NAME : "agent_tpl",
