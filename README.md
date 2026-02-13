@@ -74,15 +74,39 @@ python mcp_transport_configurator.py
 
 ## Configuration Files
 
-The server automatically generates `.vscode/mcp.json` based on your protocol choice:
+The server automatically generates `.vscode/mcp.json` based on your protocol choice.
 
-### STDIO Configuration
+Notes about generated configuration
+- The configurator writes `.vscode/mcp.json` into the current working
+  directory (cwd). The generated configuration embeds the VS Code
+  placeholder `${workspaceFolder}` (not `${cwd}`) in command/args/env
+  entries so VS Code resolves paths relative to the workspace when the
+  MCP extension runs the agent.
+- For STDIO mode the configurator picks an OS-appropriate Python executable
+  inside `.venv`:
+  - Windows: `.venv\\Scripts\\python.exe`
+  - macOS/Linux: `.venv/bin/python`
+
+Path-separator note
+- The configurator uses Python path utilities when constructing the
+  placeholder-containing strings. On Windows this results in backslashes
+  (\\) inside the generated JSON values; on POSIX systems it uses
+  forward slashes (/). Because VS Code expands `${workspaceFolder}` at
+  runtime, mixed or platform-specific separators may appear after
+  expansion. If you need perfectly normalized paths in your workspace
+  configuration, consider either:
+  - Using forward slashes in the JSON (e.g. `${workspaceFolder}/.venv/...`), or
+  - Using the per-platform overrides in `launch.json`/configuration blocks.
+
+### STDIO Configuration (examples)
+
+Windows (what the configurator may produce when run on Windows):
 ```json
 {
     "servers": {
         "my-mcp-server": {
             "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
-            "args": ["mcp_server.py"],
+            "args": ["${workspaceFolder}\\agent_tpl\\mcp_server.py"],
             "env": {
                 "PYTHONPATH": "${workspaceFolder}"
             }
@@ -91,7 +115,22 @@ The server automatically generates `.vscode/mcp.json` based on your protocol cho
 }
 ```
 
-### SSE Configuration
+macOS / Linux (what the configurator may produce when run on POSIX):
+```json
+{
+    "servers": {
+        "my-mcp-server": {
+            "command": "${workspaceFolder}/.venv/bin/python",
+            "args": ["${workspaceFolder}/agent_tpl/mcp_server.py"],
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        }
+    }
+}
+```
+
+### SSE Configuration (example)
 ```json
 {
     "servers": {
