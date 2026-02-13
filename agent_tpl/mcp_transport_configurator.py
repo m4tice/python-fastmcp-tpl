@@ -31,7 +31,7 @@ def path_difference(base, target):
     try:
         return str(Path(target).relative_to(base))
     except ValueError:
-        return os.path.relpath(target, base)
+        return None
 
 def configure_mcp():
     """
@@ -101,7 +101,13 @@ def configure_mcp():
             python_cmd = os.path.join('${workspaceFolder}', '.venv', 'bin', 'python')
 
         dir_difference = path_difference(os.getcwd(), os.path.dirname(os.path.abspath(__file__)))
-        agent_path = os.path.join('${workspaceFolder}', dir_difference, 'mcp_server.py')
+
+        if dir_difference is not None:
+            # Use relative path from {workspaceFolder} to agent script
+            agent_path = os.path.join('${workspaceFolder}', dir_difference, 'mcp_server.py')
+        else:
+            # Fallback to absolute path if relative path not possible
+            agent_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mcp_server.py')
 
         agent_config = {
             'command': python_cmd,
