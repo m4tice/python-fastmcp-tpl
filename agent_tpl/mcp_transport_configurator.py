@@ -94,11 +94,12 @@ def configure_mcp():
         protocol_info = f"SSE transport on port {SETTINGS[PORT]}"
     else:
         # SETTINGS[PROTOCOL] == STDIO
-        # Build paths using os.path.join so they are correct per-OS.
+        # Build command using the `${workspaceFolder}` placeholder and forward
+        # slashes so VS Code expands consistently across platforms.
         if os.name == 'nt' or sys.platform.startswith('win'):
-            python_cmd = os.path.join('${workspaceFolder}', '.venv', 'Scripts', 'python.exe')
+            python_cmd = '${workspaceFolder}/.venv/Scripts/python.exe'
         else:
-            python_cmd = os.path.join('${workspaceFolder}', '.venv', 'bin', 'python')
+            python_cmd = '${workspaceFolder}/.venv/bin/python'
 
         dir_difference = path_difference(os.getcwd(), os.path.dirname(os.path.abspath(__file__)))
 
