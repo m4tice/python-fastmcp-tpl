@@ -23,7 +23,15 @@ Only documentation and comments are updated here to describe the behavior.
 import json
 import os
 import sys
+from pathlib import Path
 from mcp_settings import SETTINGS, STDIO, SSE, PROTOCOL, PORT, MCP_NAME
+
+def path_difference(base, target):
+
+    try:
+        return str(Path(target).relative_to(base))
+    except ValueError:
+        return os.path.relpath(target, base)
 
 def configure_mcp():
     """
@@ -87,14 +95,13 @@ def configure_mcp():
     else:
         # SETTINGS[PROTOCOL] == STDIO
         # Build paths using os.path.join so they are correct per-OS.
-        # Use the current working directory variable placeholder `${cwd}`
-        rel_agent_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mcp_server.py')
         if os.name == 'nt' or sys.platform.startswith('win'):
             python_cmd = os.path.join('${workspaceFolder}', '.venv', 'Scripts', 'python.exe')
         else:
             python_cmd = os.path.join('${workspaceFolder}', '.venv', 'bin', 'python')
 
-        agent_path = os.path.join('${workspaceFolder}', rel_agent_path)
+        dir_difference = path_difference(os.getcwd(), os.path.dirname(os.path.abspath(__file__)))
+        agent_path = os.path.join('${workspaceFolder}', dir_difference, 'mcp_server.py')
 
         agent_config = {
             'command': python_cmd,
