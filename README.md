@@ -74,24 +74,33 @@ python mcp_transport_configurator.py
 
 ## Configuration Files
 
-The server automatically generates `.vscode/mcp.json` based on your protocol choice:
+The server automatically generates `.vscode/mcp.json` based on your protocol choice.
 
-### STDIO Configuration
+Notes about generated configuration
+- The configurator writes `.vscode/mcp.json` into the current working
+  directory (cwd). The generated paths use the `${cwd}` placeholder so VS Code
+  resolves them relative to the folder where you run the project.
+- For STDIO mode the configurator selects an OS-appropriate Python executable
+  inside `.venv`:
+  - Windows: `.venv\Scripts\python.exe`
+  - macOS/Linux: `.venv/bin/python`
+
+### STDIO Configuration (example)
 ```json
 {
     "servers": {
         "my-mcp-server": {
-            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
-            "args": ["mcp_server.py"],
+            "command": "${cwd}\\.venv\\Scripts\\python.exe",
+            "args": ["${cwd}/mcp_server.py"],
             "env": {
-                "PYTHONPATH": "${workspaceFolder}"
+                "PYTHONPATH": "${cwd}"
             }
         }
     }
 }
 ```
 
-### SSE Configuration
+### SSE Configuration (example)
 ```json
 {
     "servers": {

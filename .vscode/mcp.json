@@ -1,9 +1,9 @@
 {
     "servers": {
-        "my-mcp-server": {
-            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+        "agent_tpl": {
+            "command": "${workspaceFolder}/.venv/bin/python",
             "args": [
-                "mcp_server.py"
+                "/Users/m4tice/workspace/Python/python-fastmcp-tpl/agent_tpl/mcp_server.py"
             ],
             "env": {
                 "PYTHONPATH": "${workspaceFolder}"
