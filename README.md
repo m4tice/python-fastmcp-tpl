@@ -78,22 +78,52 @@ The server automatically generates `.vscode/mcp.json` based on your protocol cho
 
 Notes about generated configuration
 - The configurator writes `.vscode/mcp.json` into the current working
-  directory (cwd). The generated paths use the `${cwd}` placeholder so VS Code
-  resolves them relative to the folder where you run the project.
-- For STDIO mode the configurator selects an OS-appropriate Python executable
+  directory (cwd). The generated configuration embeds the VS Code
+  placeholder `${workspaceFolder}` (not `${cwd}`) in command/args/env
+  entries so VS Code resolves paths relative to the workspace when the
+  MCP extension runs the agent.
+- For STDIO mode the configurator picks an OS-appropriate Python executable
   inside `.venv`:
-  - Windows: `.venv\Scripts\python.exe`
+  - Windows: `.venv\\Scripts\\python.exe`
   - macOS/Linux: `.venv/bin/python`
 
-### STDIO Configuration (example)
+Path-separator note
+- The configurator uses Python path utilities when constructing the
+  placeholder-containing strings. On Windows this results in backslashes
+  (\\) inside the generated JSON values; on POSIX systems it uses
+  forward slashes (/). Because VS Code expands `${workspaceFolder}` at
+  runtime, mixed or platform-specific separators may appear after
+  expansion. If you need perfectly normalized paths in your workspace
+  configuration, consider either:
+  - Using forward slashes in the JSON (e.g. `${workspaceFolder}/.venv/...`), or
+  - Using the per-platform overrides in `launch.json`/configuration blocks.
+
+### STDIO Configuration (examples)
+
+Windows (what the configurator may produce when run on Windows):
 ```json
 {
     "servers": {
         "my-mcp-server": {
-            "command": "${cwd}\\.venv\\Scripts\\python.exe",
-            "args": ["${cwd}/mcp_server.py"],
+            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+            "args": ["${workspaceFolder}\\agent_tpl\\mcp_server.py"],
             "env": {
-                "PYTHONPATH": "${cwd}"
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        }
+    }
+}
+```
+
+macOS / Linux (what the configurator may produce when run on POSIX):
+```json
+{
+    "servers": {
+        "my-mcp-server": {
+            "command": "${workspaceFolder}/.venv/bin/python",
+            "args": ["${workspaceFolder}/agent_tpl/mcp_server.py"],
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
             }
         }
     }

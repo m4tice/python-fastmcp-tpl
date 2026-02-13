@@ -1,21 +1,11 @@
 """
 Configure MCP transport protocol
 
-This script updates the mcp.json file based on the protocol setting in
-`mcp_settings.py`. The configurator writes `.vscode/mcp.json` under the
-current working directory (cwd). The README and inline comments explain that
-the generated configuration uses the `${cwd}` placeholder so VS Code resolves
-paths relative to the directory where the user runs the project. The
-configuration generation supports both Windows and macOS/Linux conventions
-for virtual environment layout.
+Create or update `.vscode/mcp.json` for the VS Code MCP extension using
+settings from `mcp_settings.py`.
 
-Notes:
-- The implementation writes to ``./.vscode/mcp.json`` (cwd/.vscode/mcp.json).
-- For STDIO mode the generated `command`/`args` will reference the venv
-    executable path appropriate for the OS (``.venv\Scripts\python.exe`` on
-    Windows, ``.venv/bin/python`` on macOS/Linux).
-
-Only documentation and comments are updated here to describe the behavior.
+Implementation details (path handling, placeholders, and examples) are
+documented in the `configure_mcp()` and `path_difference()` docstrings.
 
 @author: GUU8HC
 """
@@ -27,6 +17,12 @@ from pathlib import Path
 from mcp_settings import SETTINGS, STDIO, SSE, PROTOCOL, PORT, MCP_NAME
 
 def path_difference(base, target):
+    """
+    Return the relative path from `base` to `target`, or ``None``.
+
+    If `target` is a subpath of `base` returns a relative path string;
+    otherwise returns ``None``.
+    """
 
     try:
         return str(Path(target).relative_to(base))
@@ -35,24 +31,9 @@ def path_difference(base, target):
 
 def configure_mcp():
     """
-    Configure the MCP transport protocol in mcp.json
-    Merges with existing configuration if present (supports multiple agents)
-    
-     Steps:
-     1. Use the current working directory (cwd) and create ``.vscode`` there if
-         missing. The generated `mcp.json` uses `${cwd}` placeholders so VS Code
-         resolves paths relative to where the user runs the project.
-     2. Load existing mcp.json if it exists; otherwise start with empty servers dict
-     3. Check if current agent is already registered in mcp.json
-         - If yes: skip (idempotent, avoid duplicates)
-         - If no: continue to step 4
-     4. Build agent configuration based on PROTOCOL setting:
-         - SSE: add type="sse" and url with port from settings
-         - STDIO: produce a `command` and `args` that reference `${cwd}` and pick
-            the correct virtualenv Python executable for the OS (Windows vs macOS/Linux)
-     5. Merge new agent config into existing servers dict
-     6. Write updated mcp.json with all registered agents (no conflicts)
-     7. Print status: agent name, protocol, and file path updated
+    Create or update `.vscode/mcp.json` for the current workspace.
+
+    Merges the current agent into the `servers` mapping and writes the file.
     """
     # Step 1: Use current working directory (cwd) as the base for .vscode
     try:
