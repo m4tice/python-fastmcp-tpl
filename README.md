@@ -1,197 +1,434 @@
 [![MseeP.ai Security Assessment Badge](https://mseep.net/pr/m4tice-python-fastmcp-tpl-badge.png)](https://mseep.ai/app/m4tice-python-fastmcp-tpl)
 
-# Python FastMCP Template
+# AUTOSAR ParamDef MCP Server
 
-A template for creating Model Context Protocol (MCP) servers using Python and FastMCP.
+An MCP (Model Context Protocol) server for querying AUTOSAR ECUC parameter definitions via GitHub Copilot. Combines FastMCP transport with high-performance binary serialization and indexed search over AUTOSAR configuration models.
 
 ## Overview
 
-This template provides a foundation for building MCP servers with support for two transport protocols:
-- **STDIO** (default) - Standard input/output communication
-- **SSE** - Server-Sent Events over HTTP
+This project demonstrates how binary snapshots enable fast startup and sub-millisecond queries:
+
+- **Cold start** (first run): Parse ARXML files (~20–30 ms for small models, minutes for full PVERs)
+- **Warm start** (subsequent runs): Load binary snapshot (~10 ms), with fingerprint-based cache invalidation
+- **Query latency**: Sub-millisecond indexed searches (O(1) type/path, O(vocabulary) fuzzy)
+
+Designed for integration with GitHub Copilot to enable LLM-driven AUTOSAR configuration inspection.
 
 ## Features
 
-- Easy configuration switching between STDIO and SSE protocols
+- High-performance binary serialization with gzip compression (46× smaller than XML)
+- Automatic fingerprint-based snapshot validation
+- O(1) type/path lookups via pre-built indexes
+- Fuzzy search for discovery by approximate name
+- STDIO/SSE transport protocols
 - Automatic `mcp.json` configuration generation
-- Example tool implementation (`mcp_get_precise_time`)
-- Clean project structure with modular components
 
-## File Structure
+## Project Structure
 
 ```
-├── mcp_server.py                    # Main MCP server application
-├── mcp_settings.py                  # Configuration settings
-├── mcp_transport_configurator.py    # Auto-configures mcp.json
-├── mcp_util.py                      # Utility functions (add your tools here)
-├── requirements.txt                 # Python dependencies
-└── README.md                        # This file
+agent_tpl/
+├── mcp_server.py                  # MCP server (FastMCP + tool registration)
+├── mcp_settings.py                # Configuration (STDIO/SSE, port, settings)
+├── mcp_transport_configurator.py  # Auto-generates .vscode/mcp.json
+├── mcp_util.py                    # Tool implementations + snapshot engine
+├── paramdef_manager.py            # Serialization, parsing, search engine (LOCAL COPY)
+└── __pycache__/                   # (auto-generated)
+
+confrules/
+├── Com_EcucParamDef.arxml         # Sample ARXML: Com module
+├── PduR_EcucParamDef.arxml        # Sample ARXML: PduR module
+└── paramdef.snapshot.bin          # Auto-generated binary snapshot
+
+README.md                            # This file
+requirements.txt                     # Python dependencies (fastmcp)
 ```
 
-## Setup
+## Getting Started
 
-1. **Install dependencies:**
+### Prerequisites
+
+- Python 3.9+
+- pip
+
+### Installation
+
+1. **Clone or download the project:**
+   ```bash
+   cd python-fastmcp-tpl
+   ```
+
+2. **Create a virtual environment:**
+   ```bash
+   python -m venv .venv
+   ```
+
+3. **Activate the virtual environment:**
+   - Windows: `.venv\Scripts\activate`
+   - macOS/Linux: `source .venv/bin/activate`
+
+4. **Install dependencies:**
    ```bash
    pip install -r requirements.txt
    ```
 
-2. **Configure transport protocol:**
-   Edit `mcp_settings.py` to choose your transport protocol:
-   ```python
-   SETTINGS = {
-       PROTOCOL : STDIO,  # or SSE
-       PORT     : "5500"  # only used for SSE
-   }
-   ```
+## Running the MCP Server
+
+### Start the Server
+
+```bash
+python agent_tpl/mcp_server.py
+```
+
+This will:
+1. Load the ParamDef model from `confrules/*.arxml` (or `paramdef.snapshot.bin` if available)
+2. Auto-generate `.vscode/mcp.json` configuration
+3. Start the MCP server in STDIO mode (default) or SSE mode
+
+The model stays in memory for the lifetime of the server process.
+
+### Configuration
+
+Edit `agent_tpl/mcp_settings.py` to customize:
+
+```python
+SETTINGS = {
+    MCP_NAME : "agent_tpl",
+    PROTOCOL : STDIO,  # or SSE for HTTP
+    PORT     : 5501    # only used if PROTOCOL=SSE
+}
+```
+
+## MCP Tools
+
+The server exposes 5 tools to GitHub Copilot:
+
+### 1. `paramdef_model_stats`
+
+Get model statistics and load performance.
+
+**Returns:**
+- `load_source`: "snapshot" (fast path) or "arxml" (cold start)
+- `load_time_ms`: Milliseconds to load the model
+- `snapshot_exists`: Whether the binary cache file exists
+- `model.stats()`: Containers, parameters, vocabulary size, etc.
+
+**Use case:** Understand the serialization advantage—compare load_source values across server restarts.
+
+### 2. `paramdef_fuzzy_search`
+
+Fuzzy search across all container, parameter, and reference short names.
+
+**Parameters:**
+- `query` (str): Search term (e.g., "pdu", "timeout", "nds ecu")
+- `limit` (int, default 10): Max results to return
+
+**Returns:**
+- `results[]`: Array of `{term, score}` sorted by similarity (0.0–1.0)
+- `search_time_us`: Microseconds to execute
+
+**Use case:** Discover container names when you only know an approximation.
+
+```
+Examples:
+  "pdu"      → ComIPdu, PduR, PduRRoutingTable, …
+  "timeout"  → ComMainFunctionRxPeriod, …
+  "nds ecu"  → rba_Nds_EcuInstanceFRef (fuzzy match)
+```
+
+### 3. `paramdef_search_by_type`
+
+O(1) index lookup by container definition type (short name).
+
+**Parameters:**
+- `container_type` (str): Container type name (e.g., "ComConfig", "ComIPdu")
+- `short_name` (str, optional): Narrow results to a specific instance
+
+**Returns:**
+- Full container details: parameters, references, sub-containers, multiplicity
+- `search_time_us`: Query latency (typically < 10 µs)
+
+### 4. `paramdef_search_by_path`
+
+Search by full or partial slash-separated definition path.
+
+**Parameters:**
+- `definition_path` (str): Path segment(s) (e.g., "Com/ComConfig/ComIPdu")
+
+**Returns:**
+- Containers matching the path (bottom-up index, O(1) lookup on last segment)
+
+**Use case:** When you have a definition path from an RQ1 defect entry or other structured source.
+
+### 5. `paramdef_list_containers`
+
+Browse top-level containers grouped by module (discovery tool).
+
+**Parameters:**
+- `module_name` (str, optional): Filter by module (e.g., "Com", "PduR")
+
+**Returns:**
+- List of containers with parameter count, reference count, child count
+- Useful when you don't yet know which container types exist
+
+## Working with paramdef_manager.py
+
+`agent_tpl/paramdef_manager.py` is a standalone CLI tool for parsing, serializing, and querying AUTOSAR models.
+
+### CLI Usage
+
+#### 1. Parse ARXML and Create Snapshot
+
+```bash
+python agent_tpl/paramdef_manager.py parse confrules/Com_EcucParamDef.arxml confrules/PduR_EcucParamDef.arxml -o confrules/paramdef.snapshot.bin
+```
+
+**Options:**
+- `files`: One or more `.arxml` file paths
+- `-o, --output`: Output snapshot path (default: `paramdef_snapshot.bin`)
+- `--no-compress`: Skip gzip compression (default: enabled)
+
+**Output:**
+- Parsed model statistics (modules, containers, parameters, vocabulary)
+- Snapshot file with compression ratio and serialization time
+
+#### 2. Load and Inspect a Snapshot
+
+```bash
+python agent_tpl/paramdef_manager.py load confrules/paramdef.snapshot.bin --tree --depth 2
+```
+
+**Options:**
+- `snapshot`: Snapshot file path
+- `--tree`: Print container hierarchy tree
+- `--depth`: Max tree depth to display (default: full tree)
+
+#### 3. Search by Container Type
+
+```bash
+python agent_tpl/paramdef_manager.py search confrules/paramdef.snapshot.bin --type ComConfig
+```
+
+**Options:**
+- `--type`: Container type name
+- `--name`: Instance short name (optional filter)
+- `--path`: Definition path (alternative to --type)
+
+**Examples:**
+```bash
+# Find all ComIPdu containers
+python agent_tpl/paramdef_manager.py search confrules/paramdef.snapshot.bin --type ComIPdu
+
+# Find a specific signal
+python agent_tpl/paramdef_manager.py search confrules/paramdef.snapshot.bin --type ComSignal --name Sig_ESP_Speed
+```
+
+#### 4. Fuzzy Search
+
+```bash
+python agent_tpl/paramdef_manager.py fuzzy confrules/paramdef.snapshot.bin --query "pdu timeout" --limit 20
+```
+
+**Options:**
+- `--query`: Search term
+- `--limit`: Max results (default: 10)
+
+#### 5. Benchmark: Parse vs Deserialize
+
+```bash
+python agent_tpl/paramdef_manager.py benchmark confrules/Com_EcucParamDef.arxml confrules/PduR_EcucParamDef.arxml --runs 5
+```
+
+**Output:**
+- XML parse time (average and min)
+- Binary deserialize time (average and min)
+- Speedup factor (parse_time / deserialize_time)
+- Snapshot compression ratio
+
+**Example output:**
+```
+  source_files        2
+  source_size_kb      777.4
+  snapshot_size_kb    16.8
+  compression_ratio   46.3
+  parse_avg_ms        19.2
+  deserialize_avg_ms  3.5
+  speedup_factor      5.5
+```
+
+#### 6. Compute File Fingerprint
+
+```bash
+python agent_tpl/paramdef_manager.py fingerprint confrules/Com_EcucParamDef.arxml confrules/PduR_EcucParamDef.arxml
+```
+
+**Output:**
+- SHA-256 fingerprint over sorted file contents (used for cache invalidation)
+
+### Understanding the Serialization
+
+**Cold start (no snapshot):**
+1. `ParamDefParser.parse_files(...)` reads and parses ARXML files
+2. Builds in-memory model + indexes (type index, name index, vocabulary)
+3. `serialize(model, output_path)` writes:
+   - 8-byte magic: `"ARSNAP01"`
+   - 4-byte version: `0x00000001`
+   - gzip-compressed pickle of the model
+
+**Warm start (snapshot exists):**
+1. `deserialize(snapshot_path)` reads magic + version + decompresses
+2. Computes fingerprint of current ARXML files
+3. Compares with snapshot's fingerprint:
+   - Match → fast path, deserialize in ~10 ms
+   - Mismatch → cold start (files changed)
+
+**Fingerprint validation:**
+- Prevents stale snapshots from being used after ARXML changes
+- Ensures correctness without explicit timestamp tracking
+
+## Advanced: Integration with mcp_util
+
+The `_ParamDefEngine` singleton in `mcp_util.py` automates the snapshot strategy:
+
+```python
+class _ParamDefEngine:
+    def initialize(self):
+        # 1. Try snapshot (fast path)
+        if snapshot_path.exists():
+            candidate = deserialize(snapshot_path)
+            if candidate.fingerprint == current_fingerprint:
+                return candidate  # Success: ~10 ms
+        
+        # 2. Parse ARXML (cold start)
+        model = parser.parse_files(arxml_paths)
+        serialize(model, snapshot_path)  # Auto-save for next startup
+        return model
+```
+
+This ensures:
+- **First startup**: Parse ARXML, auto-save snapshot
+- **Subsequent startups**: Load snapshot (fast)
+- **Automatic invalidation**: If ARXML files change, cold start is triggered
 
 ## Transport Protocols
 
 ### STDIO (Default)
-- Uses standard input/output for communication
-- Suitable for direct integration with clients that support process spawning
-- Configuration is automatically generated for VS Code MCP extension
+- Standard input/output for local process integration
+- Suitable for VS Code MCP extension
+- Configuration is auto-generated in `.vscode/mcp.json`
 
 ### SSE (Server-Sent Events)
-- HTTP-based communication using Server-Sent Events
-- Runs on configurable port (default: 5500)
-- Suitable for web-based integrations or when firewall restrictions apply
+- HTTP-based communication
+- Change `PROTOCOL: SSE` in `mcp_settings.py`
+- Useful for remote clients or cross-platform testing
 
-## Running the Server
+## Project Independence
 
-### Method 1: Direct execution (Recommended)
-```bash
-python mcp_server.py
-```
-This will:
-1. Automatically configure the appropriate `mcp.json` file
-2. Start the server with the selected transport protocol
+This project is self-contained:
+- ✅ All Python modules are local (in `agent_tpl/`)
+- ✅ No external file references
+- ✅ Can be relocated to any directory without breaking imports
+- ✅ All paths use `Path(__file__).resolve().parent` for portability
 
-### Method 2: Configuration only
-To just update the `mcp.json` configuration without starting the server:
-```bash
-python mcp_transport_configurator.py
-```
+## Sample Workflow
 
-## Configuration Files
+1. **Start the server:**
+   ```bash
+   python agent_tpl/mcp_server.py
+   ```
+   Output:
+   ```
+   Load source: snapshot
+   Load time: 10.57 ms
+   Snapshot: True
+   ```
 
-The server automatically generates `.vscode/mcp.json` based on your protocol choice.
+2. **In VS Code with Copilot MCP extension enabled:**
+   ```
+   @agent_tpl
+   What parameters does the Com module have?
+   ```
+   Copilot calls: `paramdef_list_containers("Com")`
 
-Notes about generated configuration
-- The configurator writes `.vscode/mcp.json` into the current working
-  directory (cwd). The generated configuration embeds the VS Code
-  placeholder `${workspaceFolder}` (not `${cwd}`) in command/args/env
-  entries so VS Code resolves paths relative to the workspace when the
-  MCP extension runs the agent.
-- For STDIO mode the configurator picks an OS-appropriate Python executable
-  inside `.venv`:
-  - Windows: `.venv\\Scripts\\python.exe`
-  - macOS/Linux: `.venv/bin/python`
+3. **Copilot discovers container names:**
+   ```
+   Com/ComConfig - 3 children, 28 params
+   ```
 
-Path-separator note
-- The configurator uses Python path utilities when constructing the
-  placeholder-containing strings. On Windows this results in backslashes
-  (\\) inside the generated JSON values; on POSIX systems it uses
-  forward slashes (/). Because VS Code expands `${workspaceFolder}` at
-  runtime, mixed or platform-specific separators may appear after
-  expansion. If you need perfectly normalized paths in your workspace
-  configuration, consider either:
-  - Using forward slashes in the JSON (e.g. `${workspaceFolder}/.venv/...`), or
-  - Using the per-platform overrides in `launch.json`/configuration blocks.
+4. **Query specific containers:**
+   ```
+   @agent_tpl
+   Show me all ComIPdu containers and their parameters.
+   ```
+   Copilot calls: `paramdef_search_by_type("ComIPdu")`
 
-### STDIO Configuration (examples)
-
-Windows (what the configurator may produce when run on Windows):
-```json
-{
-    "servers": {
-        "my-mcp-server": {
-            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
-            "args": ["${workspaceFolder}\\agent_tpl\\mcp_server.py"],
-            "env": {
-                "PYTHONPATH": "${workspaceFolder}"
-            }
-        }
-    }
-}
-```
-
-macOS / Linux (what the configurator may produce when run on POSIX):
-```json
-{
-    "servers": {
-        "my-mcp-server": {
-            "command": "${workspaceFolder}/.venv/bin/python",
-            "args": ["${workspaceFolder}/agent_tpl/mcp_server.py"],
-            "env": {
-                "PYTHONPATH": "${workspaceFolder}"
-            }
-        }
-    }
-}
-```
-
-### SSE Configuration (example)
-```json
-{
-    "servers": {
-        "my-sse-mcp-server": {
-            "type": "sse",
-            "url": "http://127.0.0.1:5500/sse"
-        }
-    }
-}
-```
-
-## Adding Your Own Tools
-
-1. Implement your functions in `mcp_util.py`
-2. Add MCP tool wrappers in `mcp_server.py` using the `@app.tool()` decorator
-
-Example:
-```python
-# In mcp_util.py
-def my_custom_function(param1, param2):
-    """Your custom logic here"""
-    return f"Result: {param1} + {param2}"
-
-# In mcp_server.py
-@app.tool()
-def my_custom_tool(param1: str, param2: str):
-    """
-    Description of what this tool does
-    """
-    return my_custom_function(param1, param2)
-```
+5. **Fuzzy discovery:**
+   ```
+   @agent_tpl
+   What's the timeout parameter called?
+   ```
+   Copilot calls: `paramdef_fuzzy_search("timeout")`
 
 ## Troubleshooting
 
-### Common Issues
+### Snapshot not being used
 
-1. **Port already in use (SSE mode):**
-   - Change the port in `mcp_settings.py`
-   - Check if another service is using the port
+**Symptom:** `load_source: "arxml"` on every startup
 
-2. **Python path issues (STDIO mode):**
-   - Ensure you're using a virtual environment
-   - Verify the Python path in the generated `mcp.json`
+**Solution:** Check the fingerprint:
+```bash
+python agent_tpl/paramdef_manager.py fingerprint confrules/*.arxml
+```
+Compare with the snapshot's fingerprint (visible via `paramdef_model_stats`).
+If different, the source files changed → re-create the snapshot.
 
-3. **Module import errors:**
-   - Check that all dependencies are installed
-   - Verify PYTHONPATH is set correctly
+### "No .arxml files found"
 
-### Logs and Debugging
+**Symptom:** Error during startup
 
-- STDIO mode: Check VS Code MCP extension logs
-- SSE mode: Server logs are printed to console
+**Solution:** Ensure ARXML files are in `confrules/` directory:
+```bash
+ls confrules/*.arxml
+```
 
-## Sample prompt
+### Import errors
 
-```Tell me the precise time (using MCP Tools).```
+**Symptom:** `ModuleNotFoundError: No module named 'paramdef_manager'`
+
+**Solution:** `paramdef_manager.py` must be in `agent_tpl/` (local copy). Verify:
+```bash
+ls agent_tpl/paramdef_manager.py
+```
+
+### Port already in use (SSE mode)
+
+**Solution:** Change `PORT` in `agent_tpl/mcp_settings.py`.
+
+## Performance Metrics
+
+Typical performance on small models (2 modules, 44 containers):
+
+| Operation | Time |
+|-----------|------|
+| XML parse (cold start) | ~20 ms |
+| Snapshot deserialize | ~10 ms |
+| Type search (indexed) | < 10 µs |
+| Path search (indexed) | < 10 µs |
+| Fuzzy search (100 terms) | ~1–2 ms |
+
+Snapshot file size: ~17 KB compressed (46× compression vs ARXML)
+
+## References
+
+- [AUTOSAR Standard](https://www.autosar.org/)
+- [Model Context Protocol (MCP)](https://modelcontextprotocol.io/)
+- [FastMCP](https://github.com/jloong/fastmcp)
+- [GitHub Copilot Extensions](https://docs.github.com/en/copilot/managing-copilot/managing-copilot-business/enabling-copilot-business-in-your-organization)
 
 ## License
 
-This template is provided as-is for educational and development purposes.
+This project is provided as-is for educational and development purposes.
 
-## Author
+## Authors
 
-GUU8HC
+- **GUU8HC** — FastMCP template foundation
+- **Nguyen Duc Tuan** — ParamDef serialization, indexing, and MCP integration
